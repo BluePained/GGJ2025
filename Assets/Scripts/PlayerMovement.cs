@@ -14,6 +14,7 @@ public class PlayerMovement : MonoBehaviour
     [Header("Walk relate")]
     [SerializeField] private Rigidbody2D rb;
     [SerializeField] private float playerSpeed;
+    
 
     [Header("Jump relate")]
     [SerializeField] private float playerJumpPower;
@@ -21,14 +22,13 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float peakGravity;
     [SerializeField] private float coyoteTimeCouter;
     [SerializeField] private float coyoteTime;
-    [SerializeField] private float jumpBufferCounter;
-    [SerializeField] private float jumpBufferTime;
     [SerializeField] private float airSpeed;
-    private bool isJumping;
+    [SerializeField] private bool isJumping;
 
     [Header("Unchange")]
     [SerializeField] private LayerMask groundLayer;
-    [SerializeField] private GameObject playerFoot;
+    [SerializeField] private GameObject playerRightFoot;
+    [SerializeField] private GameObject playerLeftFoot;
     private float x;
 
     void Start()
@@ -37,6 +37,7 @@ public class PlayerMovement : MonoBehaviour
         {
             rb = GetComponent<Rigidbody2D>();
         }
+
         normalGravity = rb.gravityScale;
     }
 
@@ -45,15 +46,6 @@ public class PlayerMovement : MonoBehaviour
     {
         x = Input.GetAxisRaw("Horizontal");
 
-        if (jumpBufferCounter >= -3f)
-        {
-            coyoteTimeCouter -= Time.deltaTime;
-        }
-
-        if (jumpBufferCounter >= -1f)
-        {
-            jumpBufferCounter -= Time.deltaTime;
-        }
             
 
         if (isGrounded())
@@ -71,15 +63,17 @@ public class PlayerMovement : MonoBehaviour
             state = PlayerState.Fall;
         }
 
-        switch(state)
+        switch (state)
         {
             case PlayerState.OnGround:
                 coyoteTimeCouter = coyoteTime;
+                
                 Jumping();
                 
                 break;
             case PlayerState.OffGround:
                 JumpingCoyote();
+                
                 break;
             case PlayerState.Fall:
                 JumpingCoyote();
@@ -88,8 +82,10 @@ public class PlayerMovement : MonoBehaviour
 
 
 
-
-
+        if (coyoteTimeCouter >= -3f)
+        {
+            coyoteTimeCouter -= Time.deltaTime;
+        }
 
     }
 
@@ -101,10 +97,20 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
+   
     private bool isGrounded()
     {
-        bool result = (Physics2D.OverlapCircle(playerFoot.transform.position, 0.2f, groundLayer)) ? true : false;
-        return result;
+        bool leftFoot = Physics2D.Raycast(playerLeftFoot.transform.position, Vector2.down, 0.1f,groundLayer);
+        bool rightFoot = Physics2D.Raycast(playerRightFoot.transform.position, Vector2.down, 0.1f, groundLayer);
+
+        if (leftFoot == true || rightFoot == true)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 
     private void Move()
@@ -123,20 +129,16 @@ public class PlayerMovement : MonoBehaviour
 
     private void Jumping()
     {
-        if (coyoteTimeCouter > 0f && jumpBufferCounter > 0f && !isJumping)
+
+        if (coyoteTimeCouter > 0f && !isJumping)
         {
             rb.velocity = new Vector2(rb.velocity.x, playerJumpPower);
-            jumpBufferCounter = 0f;
             StartCoroutine(JumpCooldown());
         }
     }
 
     private void JumpingCoyote()
     {
-        if (Input.GetButtonDown("Vertical"))
-        {
-            jumpBufferCounter = jumpBufferTime;
-        }
 
         if (Input.GetButtonUp("Vertical") && rb.velocity.y > 0f)
         {
