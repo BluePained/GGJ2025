@@ -14,22 +14,33 @@ public class PlayerMovement : MonoBehaviour
     [Header("Walk relate")]
     [SerializeField] private Rigidbody2D rb;
     [SerializeField] private float playerSpeed;
-    
+    [SerializeField] private float additionalAirSpeed;
+    [SerializeField] private float accelRate;
+    [SerializeField] private float minSpeed;
+    [SerializeField] private float maxSpeed;
+    private float x;
 
     [Header("Jump relate")]
     [SerializeField] private float playerJumpPower;
     [SerializeField] private float normalGravity;
     [SerializeField] private float peakGravity;
-    [SerializeField] private float coyoteTimeCouter;
-    [SerializeField] private float coyoteTime;
-    [SerializeField] private float airSpeed;
-    [SerializeField] private bool isJumping;
+    [SerializeField] [Range(0f,1)] private float hangThreshold;
+    private bool isJumping;
+    private bool isFalling;
+
+    private float jumpbufferTime = 0.2f;
+    [SerializeField] private float jumpbufferCounter;
+
+    private float coyoteTime = 0.2f;
+    private float coyoteTimeCounter;
 
     [Header("Unchange")]
-    [SerializeField] private LayerMask groundLayer;
     [SerializeField] private GameObject playerRightFoot;
     [SerializeField] private GameObject playerLeftFoot;
-    private float x;
+    [SerializeField] private float jumpToFallDelay;
+    [SerializeField] private LayerMask groundLayer;
+
+
 
     void Start()
     {
@@ -38,7 +49,11 @@ public class PlayerMovement : MonoBehaviour
             rb = GetComponent<Rigidbody2D>();
         }
 
+        minSpeed = playerSpeed;
+        maxSpeed = playerSpeed * 2;
+        additionalAirSpeed = playerSpeed * 2;
         normalGravity = rb.gravityScale;
+        peakGravity = normalGravity * 0.8f;
     }
 
     // Update is called once per frame
@@ -46,58 +61,123 @@ public class PlayerMovement : MonoBehaviour
     {
         x = Input.GetAxisRaw("Horizontal");
 
-            
+        playerSpeed = Mathf.Clamp(playerSpeed, minSpeed, maxSpeed);
 
-        if (isGrounded())
-        {
-            state = PlayerState.OnGround;
-        }
-
-        if(!isGrounded() && isJumping)
-        {
-            state = PlayerState.OffGround;
-        }
-
-        if(!isGrounded() && !isJumping)
-        {
-            state = PlayerState.Fall;
-        }
-
-        switch (state)
+        switch (StateDetermined())
         {
             case PlayerState.OnGround:
-                coyoteTimeCouter = coyoteTime;
-                
-                Jumping();
+                PlayerJump();
                 
                 break;
             case PlayerState.OffGround:
-                JumpingCoyote();
+
                 
                 break;
             case PlayerState.Fall:
-                JumpingCoyote();
+  
                 break;
         }
 
-
-
-        if (coyoteTimeCouter >= -3f)
-        {
-            coyoteTimeCouter -= Time.deltaTime;
-        }
+        PeakVelocity();
+        JumpExtraFunction();
 
     }
 
     private void FixedUpdate()
     {
-        if(x != 0)
+        if (x != 0)
         {
-            Move();
+            PlayerMove();
+
+            playerSpeed += accelRate * Time.deltaTime;
+
+        }
+        else
+        {
+            playerSpeed -= accelRate * Time.deltaTime;
         }
     }
 
-   
+    private PlayerState StateDetermined()
+    {
+        if (isGrounded())
+        {
+            state = PlayerState.OnGround;
+            isFalling = false;
+            rb.gravityScale = normalGravity;
+            coyoteTimeCounter = coyoteTime;
+        }
+
+        if (!isGrounded() && isJumping)
+        {
+            state = PlayerState.OffGround;
+        }
+
+        if (!isGrounded() && !isJumping && isFalling)
+        {
+            state = PlayerState.Fall;
+            coyoteTimeCounter = -Time.deltaTime;
+        }
+
+        return state;
+    }
+
+    private void PlayerMove()
+    {
+        if(rb.gravityScale == normalGravity)
+        {
+            rb.velocity = new Vector2(x * playerSpeed * Time.deltaTime, rb.velocity.y);
+        }
+        else
+        {
+            rb.velocity = new Vector2(x * additionalAirSpeed * Time.deltaTime, rb.velocity.y);
+        }
+        
+    }
+
+    private void PeakVelocity()
+    {
+        if(isJumping || isFalling && Mathf.Abs(rb.velocity.y) < hangThreshold)
+        {
+            rb.gravityScale = peakGravity;
+        }
+    }
+
+    private void PlayerJump()
+    {
+        if(coyoteTimeCounter > 0f && jumpbufferCounter > 0f && !isJumping)
+        {
+            isJumping = true;
+            rb.velocity = new Vector2(rb.velocity.x, playerJumpPower);
+            coyoteTimeCounter = 0f;
+            StartCoroutine(JumpToFalling());
+        }
+    }
+
+    private IEnumerator JumpToFalling()
+    {
+        yield return new WaitForSeconds(jumpToFallDelay);
+        isJumping = false;
+        isFalling = true;
+    }
+
+    private void JumpExtraFunction()
+    {
+        if (Input.GetButtonDown("Jump"))
+        {
+            jumpbufferCounter = jumpbufferTime;
+        }
+        else
+        {
+            jumpbufferCounter -= Time.deltaTime;
+        }
+
+        if (Input.GetButtonUp("Jump") && rb.velocity.y > 0f)
+        {
+            rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * 0.5f);
+            coyoteTimeCounter = 0f;
+        }
+    }
     private bool isGrounded()
     {
         bool leftFoot = Physics2D.Raycast(playerLeftFoot.transform.position, Vector2.down, 0.1f,groundLayer);
@@ -113,47 +193,5 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    private void Move()
-    {
-        if(isGrounded())
-        {
-            rb.velocity = new Vector2(x * playerSpeed * Time.deltaTime, rb.velocity.y);
-        }
-        
-        if(!isGrounded() && isJumping) 
-        {
-            rb.velocity = new Vector2(x * airSpeed * Time.deltaTime, rb.velocity.y);
-        }
-        
-    }
-
-    private void Jumping()
-    {
-
-        if (coyoteTimeCouter > 0f && !isJumping)
-        {
-            rb.velocity = new Vector2(rb.velocity.x, playerJumpPower);
-            StartCoroutine(JumpCooldown());
-        }
-    }
-
-    private void JumpingCoyote()
-    {
-
-        if (Input.GetButtonUp("Vertical") && rb.velocity.y > 0f)
-        {
-            rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * 0.5f);
-            coyoteTimeCouter = 0f;
-        }
-    }
-
-    private IEnumerator JumpCooldown()
-    {
-        isJumping = true;
-        rb.gravityScale = peakGravity;
-        yield return new WaitForSeconds(0.4f);
-        rb.gravityScale = normalGravity;
-        isJumping = false;
-    }
 
 }
