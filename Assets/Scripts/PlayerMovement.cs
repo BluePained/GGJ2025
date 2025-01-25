@@ -1,15 +1,14 @@
 using System.Collections;
 using UnityEngine;
 
-enum PlayerState
-{
-    OnGround,
-    OffGround,
-    Fall
-}
 public class PlayerMovement : MonoBehaviour
 {
-    [SerializeField] private PlayerState state;
+    [Header("Fall relate")]
+    [SerializeField] private PlayerHealth _playerHealth;
+    [SerializeField] private float hurtableHeight;
+    private float offGroundPoint;
+    private float highestPoint;
+    private float lowestPoint;
 
     [Header("Walk relate")]
     [SerializeField] private Rigidbody2D rb;
@@ -18,6 +17,7 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float accelRate;
     [SerializeField] private float minSpeed;
     [SerializeField] private float maxSpeed;
+    private bool isWalking;
     private float x;
 
     [Header("Jump relate")]
@@ -35,21 +35,14 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float coyoteTimeCounter;
 
     [Header("Unchange")]
-    [SerializeField] private GameObject playerObject;
-    [SerializeField] private Transform bubblePos;
     [SerializeField] private GameObject playerRightFoot;
     [SerializeField] private GameObject playerLeftFoot;
     [SerializeField] private float jumpToFallDelay;
     [SerializeField] private LayerMask groundLayer;
-    
-
-    [SerializeField] private bool isAttack;
-    private bool isAirAttack;
-    private bool isFallAttack;
 
     [Header("PlayerAnimation")]
     [SerializeField] private PlayerAnimation playerAnimation;
-    [SerializeField] private PlayerBubble _playerBubble;
+    [SerializeField] private GameObject playerObject;
 
     void Start()
     {
@@ -68,43 +61,69 @@ public class PlayerMovement : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        LeftOfRight();
-
-        if (playerAnimation._isBubbling || isAttack)
-        {
-            rb.velocity = Vector3.zero;
-            rb.constraints = RigidbodyConstraints2D.FreezeAll;
-        }
-        else
-        {
-            rb.constraints = ~RigidbodyConstraints2D.FreezePosition;
-            x = Input.GetAxisRaw("Horizontal");
-            
-        }
-        
-
+        x = Input.GetAxisRaw("Horizontal");
         playerSpeed = Mathf.Clamp(playerSpeed, minSpeed, maxSpeed);
 
-        switch (StateDetermined())
-        {
-            case PlayerState.OnGround:
-                
-                SimpleAttack();
-                _playerBubble.enabled = true;
-                break;
-            case PlayerState.OffGround:
-                AirAttack();
-                _playerBubble.enabled = false;
-                break;
-            case PlayerState.Fall:
-                FallAirAttack();
-                _playerBubble.enabled = false;
-                break;
+        isLeftOrRight();
 
+        if(isGrounded())
+        {
+            isJumping = false;
+            isFalling = false;
+        }
+
+        if(!isGrounded() && !isJumping)
+        {
+            isFalling = true;
+        }
+
+        if(!isGrounded())
+        {
+            offGroundPoint = playerObject.transform.position.y;
+
+            if(offGroundPoint > highestPoint)
+            {
+                highestPoint = offGroundPoint;
+            }
+        }
+
+        if(isGrounded() && isFalling)
+        {
+            isFalling = false;
+            lowestPoint = playerObject.transform.position.y;
+            
+            float result = highestPoint - lowestPoint;
+            if(result > hurtableHeight)
+            {
+                _playerHealth.DecreaseHealth(Mathf.RoundToInt(result * 0.5f));
+            }
+
+            lowestPoint = 0;
+            highestPoint = 0;
+        }
+
+        if(isGrounded() && !isJumping)
+        {
+            coyoteTimeCounter = coyoteTime;
+            rb.gravityScale = normalGravity;
+        }
+
+        if (coyoteTimeCounter >= -3f)
+        {
+            coyoteTimeCounter -= Time.deltaTime;
         }
         PlayerJump();
         PeakVelocity();
         JumpExtraFunction();
+
+        if(x == 0)
+        {
+            isWalking = false;
+        }
+
+        playerAnimation.WalkSequence(isWalking);
+        playerAnimation.Jumping(isJumping);
+        playerAnimation.isFalling(isFalling);
 
     }
 
@@ -114,84 +133,14 @@ public class PlayerMovement : MonoBehaviour
         {
             PlayerMove();
             playerSpeed += accelRate * Time.deltaTime;
-
+            
         }
         else
         {
-            playerSpeed -= accelRate * Time.deltaTime;
             
+            playerSpeed -= accelRate * Time.deltaTime;
         }
 
-        if (isAirAttack)
-        {
-            rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y *playerAnimation._airAttackAdditional * Time.deltaTime);
-            isAirAttack = false;
-        }
-
-        if(isFallAttack)
-        {
-            rb.velocity = Vector2.down * playerAnimation._fallAttackAdditional * Time.deltaTime;
-            isFallAttack = false;
-        }
-    }
-
-    private void SimpleAttack()
-    {
-        if (Input.GetButtonDown("Fire1") && !playerAnimation._isAttacking)
-        {
-            isAttack = true;
-            playerAnimation.SimpleAttack();
-            StartCoroutine(AttackDelay());
-        }
-    }
-    private void AirAttack()
-    {
-        if(Input.GetButtonDown("Fire1") && !playerAnimation._isAttacking)
-        {
-            isAirAttack = true;
-            playerAnimation.SimpleAirAttack();
-        }
-        
-    }
-
-    private void FallAirAttack()
-    {
-        if (Input.GetButtonDown("Fire1") && !playerAnimation._isAttacking)
-        {
-            isFallAttack = true;
-            playerAnimation.FallingAirAttack();
-        }
-    }
-
-    private IEnumerator AttackDelay()
-    {
-        yield return new WaitForSeconds(playerAnimation._animatorController.GetCurrentAnimatorStateInfo(0).length); 
-        isAttack = false;
-    }
-
-    private PlayerState StateDetermined()
-    {
-        if (isGrounded())
-        {
-            state = PlayerState.OnGround;
-            isFalling = false;
-            rb.gravityScale = normalGravity;
-            coyoteTimeCounter = coyoteTime;
-        }
-
-        if (!isGrounded() && isJumping)
-        {
-            state = PlayerState.OffGround;
-        }
-
-
-        if (!isGrounded() && !isJumping && isFalling)
-        {
-            state = PlayerState.Fall;
-            coyoteTimeCounter = -Time.deltaTime;
-        }
-
-        return state;
     }
 
     private void PlayerMove()
@@ -199,9 +148,11 @@ public class PlayerMovement : MonoBehaviour
         if(rb.gravityScale == normalGravity)
         {
             rb.velocity = new Vector2(x * playerSpeed * Time.deltaTime, rb.velocity.y);
+            isWalking = true;
         }
         else
         {
+            isWalking = false;
             rb.velocity = new Vector2(x * additionalAirSpeed * Time.deltaTime, rb.velocity.y);
         }
         
@@ -226,11 +177,11 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
+
     private IEnumerator JumpToFalling()
     {
         yield return new WaitForSeconds(jumpToFallDelay);
         isJumping = false;
-        isFalling = true;
     }
 
     private void JumpExtraFunction()
@@ -265,26 +216,12 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    private void LeftOfRight()
+    private void isLeftOrRight()
     {
-        if (x != 0)
+        if(x != 0)
         {
-            bubblePos.position = new Vector2(bubblePos.position.x * x, 0);
-            if(playerAnimation._animatorController.GetBool("isAttack"))
-            {
-                playerAnimation._animatorController.SetBool("isWalking", false);
-            }
-            else
-            {
-                playerAnimation._animatorController.SetBool("isWalking", true);
-            }
-            
-            playerAnimation._animatorController.SetFloat("walkingDirection", x);
+            playerObject.transform.localScale = new Vector3(x,1,1);
         }
-        else
-        {
-            playerAnimation._animatorController.SetBool("isWalking", false);
-        }
-
     }
+
 }
