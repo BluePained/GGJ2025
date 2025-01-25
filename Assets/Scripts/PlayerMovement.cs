@@ -35,6 +35,7 @@ public class PlayerMovement : MonoBehaviour
     private float coyoteTimeCounter;
 
     [Header("Unchange")]
+    [SerializeField] private GameObject playerObject;
     [SerializeField] private GameObject playerRightFoot;
     [SerializeField] private GameObject playerLeftFoot;
     [SerializeField] private float jumpToFallDelay;
@@ -43,6 +44,9 @@ public class PlayerMovement : MonoBehaviour
 
     private bool isAirAttack;
     private bool isFallAttack;
+
+    [Header("PlayerAnimation")]
+    [SerializeField] private PlayerBubble _playerBubble;
 
     void Start()
     {
@@ -61,7 +65,19 @@ public class PlayerMovement : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        x = Input.GetAxisRaw("Horizontal");
+        LeftOfRight();
+
+        if (!playerAnimation._isBubbling)
+        {
+            rb.constraints = ~RigidbodyConstraints2D.FreezePosition;
+            x = Input.GetAxisRaw("Horizontal");
+        }
+        else
+        {
+            rb.velocity = Vector3.zero;
+            rb.constraints = RigidbodyConstraints2D.FreezeAll;
+        }
+        
 
         playerSpeed = Mathf.Clamp(playerSpeed, minSpeed, maxSpeed);
 
@@ -70,13 +86,15 @@ public class PlayerMovement : MonoBehaviour
             case PlayerState.OnGround:
                 PlayerJump();
                 playerAnimation.SimpleAttack();
-
+                _playerBubble.enabled = true;
                 break;
             case PlayerState.OffGround:
                 AirAttack();
+                _playerBubble.enabled = false;
                 break;
             case PlayerState.Fall:
                 FallAirAttack();
+                _playerBubble.enabled = false;
                 break;
         }
 
@@ -111,6 +129,7 @@ public class PlayerMovement : MonoBehaviour
             isFallAttack = false;
         }
     }
+
     private void AirAttack()
     {
         if(Input.GetButtonDown("Fire1") && !playerAnimation._isAttacking)
@@ -224,5 +243,16 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
+    private void LeftOfRight()
+    {
+        if (x == -1)
+        {
+            playerObject.transform.localScale = new Vector3(-1, 1, 1);
+        }
 
+        if (x == 1)
+        {
+            playerObject.transform.localScale = Vector3.one;
+        }
+    }
 }

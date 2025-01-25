@@ -9,11 +9,22 @@ public class PlayerAnimation : MonoBehaviour
     [Header("Player Animation Data")]
     [SerializeField] private float airAttackAdditional;
     [SerializeField] private float fallAttackAdditional;
+
     public float _airAttackAdditional => airAttackAdditional;
     public float _fallAttackAdditional => fallAttackAdditional;
 
     private bool isAttacking;
     public bool _isAttacking => isAttacking;
+
+    private bool isBubbling;
+    public bool _isBubbling => isBubbling;
+    public void BubbleBlow()
+    {
+        isBubbling = true;
+        _animator.SetBool("isBubbleBlowing", true);
+        StartCoroutine(ReverseStateAnimation("isBubbleBlowing", false));
+    }
+
     public void SimpleAttack()
     {
         if(Input.GetButtonDown("Fire1") && !isAttacking)
@@ -40,9 +51,10 @@ public class PlayerAnimation : MonoBehaviour
 
     private IEnumerator ReverseStateAnimation(string animation, bool state)
     {
-        yield return new WaitForSeconds(_animator.GetCurrentAnimatorStateInfo(0).length * 0.2f);
+        yield return new WaitForSeconds(_animator.GetCurrentAnimatorStateInfo(0).length);
         _animator.SetBool(animation, state);
         isAttacking = false;
+        isBubbling = false;
     }
 
 }
