@@ -29,7 +29,7 @@ public class PlayerMovement : MonoBehaviour
     private bool isFalling;
 
     private float jumpbufferTime = 0.2f;
-    [SerializeField] private float jumpbufferCounter;
+    private float jumpbufferCounter;
 
     private float coyoteTime = 0.2f;
     private float coyoteTimeCounter;
@@ -39,8 +39,10 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private GameObject playerLeftFoot;
     [SerializeField] private float jumpToFallDelay;
     [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private PlayerAnimation playerAnimation;
 
-
+    private bool isAirAttack;
+    private bool isFallAttack;
 
     void Start()
     {
@@ -67,14 +69,14 @@ public class PlayerMovement : MonoBehaviour
         {
             case PlayerState.OnGround:
                 PlayerJump();
-                
+                playerAnimation.SimpleAttack();
+
                 break;
             case PlayerState.OffGround:
-
-                
+                AirAttack();
                 break;
             case PlayerState.Fall:
-  
+                FallAirAttack();
                 break;
         }
 
@@ -96,8 +98,37 @@ public class PlayerMovement : MonoBehaviour
         {
             playerSpeed -= accelRate * Time.deltaTime;
         }
+
+        if (isAirAttack)
+        {
+            rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y *playerAnimation._airAttackAdditional * Time.deltaTime);
+            isAirAttack = false;
+        }
+
+        if(isFallAttack)
+        {
+            rb.velocity = Vector2.down * playerAnimation._fallAttackAdditional * Time.deltaTime;
+            isFallAttack = false;
+        }
+    }
+    private void AirAttack()
+    {
+        if(Input.GetButtonDown("Fire1") && !playerAnimation._isAttacking)
+        {
+            isAirAttack = true;
+            playerAnimation.SimpleAirAttack();
+        }
+        
     }
 
+    private void FallAirAttack()
+    {
+        if (Input.GetButtonDown("Fire1") && !playerAnimation._isAttacking)
+        {
+            isFallAttack = true;
+            playerAnimation.FallingAirAttack();
+        }
+    }
     private PlayerState StateDetermined()
     {
         if (isGrounded())
