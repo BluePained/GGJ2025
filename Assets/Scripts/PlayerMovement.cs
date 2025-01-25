@@ -32,20 +32,23 @@ public class PlayerMovement : MonoBehaviour
     private float jumpbufferCounter;
 
     private float coyoteTime = 0.2f;
-    private float coyoteTimeCounter;
+    [SerializeField] private float coyoteTimeCounter;
 
     [Header("Unchange")]
     [SerializeField] private GameObject playerObject;
+    [SerializeField] private Transform bubblePos;
     [SerializeField] private GameObject playerRightFoot;
     [SerializeField] private GameObject playerLeftFoot;
     [SerializeField] private float jumpToFallDelay;
     [SerializeField] private LayerMask groundLayer;
-    [SerializeField] private PlayerAnimation playerAnimation;
+    
 
+    [SerializeField] private bool isAttack;
     private bool isAirAttack;
     private bool isFallAttack;
 
     [Header("PlayerAnimation")]
+    [SerializeField] private PlayerAnimation playerAnimation;
     [SerializeField] private PlayerBubble _playerBubble;
 
     void Start()
@@ -67,15 +70,16 @@ public class PlayerMovement : MonoBehaviour
     {
         LeftOfRight();
 
-        if (!playerAnimation._isBubbling)
-        {
-            rb.constraints = ~RigidbodyConstraints2D.FreezePosition;
-            x = Input.GetAxisRaw("Horizontal");
-        }
-        else
+        if (playerAnimation._isBubbling || isAttack)
         {
             rb.velocity = Vector3.zero;
             rb.constraints = RigidbodyConstraints2D.FreezeAll;
+        }
+        else
+        {
+            rb.constraints = ~RigidbodyConstraints2D.FreezePosition;
+            x = Input.GetAxisRaw("Horizontal");
+            
         }
         
 
@@ -84,8 +88,8 @@ public class PlayerMovement : MonoBehaviour
         switch (StateDetermined())
         {
             case PlayerState.OnGround:
-                PlayerJump();
-                playerAnimation.SimpleAttack();
+                
+                SimpleAttack();
                 _playerBubble.enabled = true;
                 break;
             case PlayerState.OffGround:
@@ -96,8 +100,9 @@ public class PlayerMovement : MonoBehaviour
                 FallAirAttack();
                 _playerBubble.enabled = false;
                 break;
-        }
 
+        }
+        PlayerJump();
         PeakVelocity();
         JumpExtraFunction();
 
@@ -108,13 +113,13 @@ public class PlayerMovement : MonoBehaviour
         if (x != 0)
         {
             PlayerMove();
-
             playerSpeed += accelRate * Time.deltaTime;
 
         }
         else
         {
             playerSpeed -= accelRate * Time.deltaTime;
+            
         }
 
         if (isAirAttack)
@@ -130,6 +135,15 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
+    private void SimpleAttack()
+    {
+        if (Input.GetButtonDown("Fire1") && !playerAnimation._isAttacking)
+        {
+            isAttack = true;
+            playerAnimation.SimpleAttack();
+            StartCoroutine(AttackDelay());
+        }
+    }
     private void AirAttack()
     {
         if(Input.GetButtonDown("Fire1") && !playerAnimation._isAttacking)
@@ -148,6 +162,13 @@ public class PlayerMovement : MonoBehaviour
             playerAnimation.FallingAirAttack();
         }
     }
+
+    private IEnumerator AttackDelay()
+    {
+        yield return new WaitForSeconds(playerAnimation._animatorController.GetCurrentAnimatorStateInfo(0).length); 
+        isAttack = false;
+    }
+
     private PlayerState StateDetermined()
     {
         if (isGrounded())
@@ -162,6 +183,7 @@ public class PlayerMovement : MonoBehaviour
         {
             state = PlayerState.OffGround;
         }
+
 
         if (!isGrounded() && !isJumping && isFalling)
         {
@@ -245,14 +267,24 @@ public class PlayerMovement : MonoBehaviour
 
     private void LeftOfRight()
     {
-        if (x == -1)
+        if (x != 0)
         {
-            playerObject.transform.localScale = new Vector3(-1, 1, 1);
+            bubblePos.position = new Vector2(bubblePos.position.x * x, 0);
+            if(playerAnimation._animatorController.GetBool("isAttack"))
+            {
+                playerAnimation._animatorController.SetBool("isWalking", false);
+            }
+            else
+            {
+                playerAnimation._animatorController.SetBool("isWalking", true);
+            }
+            
+            playerAnimation._animatorController.SetFloat("walkingDirection", x);
+        }
+        else
+        {
+            playerAnimation._animatorController.SetBool("isWalking", false);
         }
 
-        if (x == 1)
-        {
-            playerObject.transform.localScale = Vector3.one;
-        }
     }
 }

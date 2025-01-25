@@ -10,6 +10,7 @@ public class PlayerAnimation : MonoBehaviour
     [SerializeField] private float airAttackAdditional;
     [SerializeField] private float fallAttackAdditional;
 
+    public Animator _animatorController => _animator;
     public float _airAttackAdditional => airAttackAdditional;
     public float _fallAttackAdditional => fallAttackAdditional;
 
@@ -18,6 +19,7 @@ public class PlayerAnimation : MonoBehaviour
 
     private bool isBubbling;
     public bool _isBubbling => isBubbling;
+
     public void BubbleBlow()
     {
         isBubbling = true;
