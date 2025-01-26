@@ -39,10 +39,14 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private GameObject playerLeftFoot;
     [SerializeField] private float jumpToFallDelay;
     [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private GameObject respawnPoint;
+    private bool isDead;
 
     [Header("PlayerAnimation")]
     [SerializeField] private PlayerAnimation playerAnimation;
     [SerializeField] private GameObject playerObject;
+    [SerializeField] private GameObject healthObject;
+    [SerializeField] private Kid _kid;
 
     void Start()
     {
@@ -61,11 +65,32 @@ public class PlayerMovement : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        if(_kid._isWin)
+        {
+            return;
+
+        }
+
+        healthObject.gameObject.transform.position =  new Vector3(playerObject.transform.position.x,
+          playerObject.transform.position.y + 2.28f, playerObject.transform.position.z  );
+
+        if(_playerHealth.GetHealth() <= 0)
+        {
+            rb.constraints = RigidbodyConstraints2D.FreezePositionX;
+
+            if(!isDead)
+            {
+                isDead = true;
+                StartCoroutine(PlayerDead());
+            }
+            
+            return;
+        }
+
         x = Input.GetAxisRaw("Horizontal");
         playerSpeed = Mathf.Clamp(playerSpeed, minSpeed, maxSpeed);
 
         isLeftOrRight();
-
 
 
         if(!isGrounded() && !isJumping)
@@ -79,6 +104,7 @@ public class PlayerMovement : MonoBehaviour
         {
             offGroundPoint = playerObject.transform.position.y;
             
+
             if(offGroundPoint > highestPoint)
             {
                 
@@ -93,11 +119,10 @@ public class PlayerMovement : MonoBehaviour
             lowestPoint = playerObject.transform.position.y;
             
             float result = highestPoint - lowestPoint;
-            print(result);
             if(result > hurtableHeight)
             {
                 
-                _playerHealth.DecreaseHealth(Mathf.RoundToInt(result * 0.5f));
+                _playerHealth.DecreaseHealth(Mathf.RoundToInt(result * 0.7f));
             }
 
             lowestPoint = 0;
@@ -150,6 +175,17 @@ public class PlayerMovement : MonoBehaviour
             playerSpeed -= accelRate * Time.deltaTime;
         }
 
+    }
+
+    private IEnumerator PlayerDead()
+    {
+        yield return new WaitForSeconds(2f);
+        playerObject.transform.position = respawnPoint.transform.position;
+        yield return new WaitForSeconds(0.5f);
+        isDead = false;
+        _playerHealth.IncreaseHealth(100);
+        rb.constraints = RigidbodyConstraints2D.None;
+        rb.constraints = RigidbodyConstraints2D.FreezeRotation;
     }
 
     private void PlayerMove()
@@ -232,5 +268,6 @@ public class PlayerMovement : MonoBehaviour
             playerObject.transform.localScale = new Vector3(x,1,1);
         }
     }
+
 
 }
