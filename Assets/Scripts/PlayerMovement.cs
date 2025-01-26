@@ -66,35 +66,37 @@ public class PlayerMovement : MonoBehaviour
 
         isLeftOrRight();
 
-        if(isGrounded())
-        {
-            isJumping = false;
-            isFalling = false;
-        }
+
 
         if(!isGrounded() && !isJumping)
         {
             isFalling = true;
+
+            rb.velocity = new Vector2(rb.velocity.x, Mathf.Max(rb.velocity.y, -50));
         }
 
         if(!isGrounded())
         {
             offGroundPoint = playerObject.transform.position.y;
-
+            
             if(offGroundPoint > highestPoint)
             {
+                
                 highestPoint = offGroundPoint;
             }
         }
 
         if(isGrounded() && isFalling)
         {
+            
             isFalling = false;
             lowestPoint = playerObject.transform.position.y;
             
             float result = highestPoint - lowestPoint;
+            print(result);
             if(result > hurtableHeight)
             {
+                
                 _playerHealth.DecreaseHealth(Mathf.RoundToInt(result * 0.5f));
             }
 
@@ -102,7 +104,14 @@ public class PlayerMovement : MonoBehaviour
             highestPoint = 0;
         }
 
-        if(isGrounded() && !isJumping)
+        if (isGrounded())
+        {
+           
+            isJumping = false;
+            isFalling = false;
+        }
+
+        if (isGrounded() && !isJumping)
         {
             coyoteTimeCounter = coyoteTime;
             rb.gravityScale = normalGravity;
